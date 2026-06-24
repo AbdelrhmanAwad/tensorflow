@@ -447,6 +447,45 @@ ENTRY main {
   EXPECT_EQ(got, expected);
 }
 
+TEST_F(HostOffloadUtilsTest,
+       GetSuccessorsGetPredecessorsEmptyShapeIndexOnTupleTest) {
+  absl::string_view hlo_string = R"hlo(
+    HloModule my_module
+    ENTRY main {
+      p0 = f32[10] parameter(0)
+      p1 = f32[10] parameter(1)
+      t = (f32[10], f32[10]) tuple(p0, p1)
+      gte_0 = f32[10] get-tuple-element(t), index=0
+      ROOT gte_1 = f32[10] get-tuple-element(t), index=1
+    }
+  )hlo";
+
+  TF_ASSERT_OK_AND_ASSIGN(auto module,
+                          ParseAndReturnVerifiedModule(hlo_string));
+  HloInstruction* p0 = FindInstruction(module.get(), "p0");
+  ASSERT_NE(p0, nullptr);
+  HloInstruction* p1 = FindInstruction(module.get(), "p1");
+  ASSERT_NE(p1, nullptr);
+  HloInstruction* t = FindInstruction(module.get(), "t");
+  ASSERT_NE(t, nullptr);
+  HloInstruction* gte_0 = FindInstruction(module.get(), "gte_0");
+  ASSERT_NE(gte_0, nullptr);
+  HloInstruction* gte_1 = FindInstruction(module.get(), "gte_1");
+  ASSERT_NE(gte_1, nullptr);
+
+  TF_ASSERT_OK_AND_ASSIGN(std::vector<InstructionAndShapeIndex> succ,
+                          GetSuccessors(InstructionAndShapeIndex(t, {})));
+  std::vector<InstructionAndShapeIndex> expected_succ = {
+      InstructionAndShapeIndex(gte_0, {}), InstructionAndShapeIndex(gte_1, {})};
+  EXPECT_EQ(succ, expected_succ);
+
+  std::vector<InstructionAndShapeIndex> pred =
+      GetPredecessors(InstructionAndShapeIndex(t, {}));
+  std::vector<InstructionAndShapeIndex> expected_pred = {
+      InstructionAndShapeIndex(p0, {}), InstructionAndShapeIndex(p1, {})};
+  EXPECT_EQ(pred, expected_pred);
+}
+
 }  // namespace
 }  // namespace host_offload_utils
 }  // namespace xla

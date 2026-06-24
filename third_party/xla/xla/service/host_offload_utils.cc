@@ -95,13 +95,15 @@ absl::StatusOr<std::vector<InstructionAndShapeIndex>> GetSuccessors(
       }
     } else if (user->opcode() == HloOpcode::kGetTupleElement) {
       ShapeIndex tmp_shape_index = instruction_and_shape_index.shape_index;
-      CHECK(!tmp_shape_index.empty())
-          << "Expected shape index to be non-empty.";
-      const auto index = tmp_shape_index.front();
-      if (index == user->tuple_index()) {
-        // This GTE is for the buffer we're tracking.
-        tmp_shape_index.pop_front();
-        result.push_back({user, std::move(tmp_shape_index)});
+      if (tmp_shape_index.empty()) {
+        result.push_back({user, {}});
+      } else {
+        const auto index = tmp_shape_index.front();
+        if (index == user->tuple_index()) {
+          // This GTE is for the buffer we're tracking.
+          tmp_shape_index.pop_front();
+          result.push_back({user, std::move(tmp_shape_index)});
+        }
       }
     } else if (user->opcode() == HloOpcode::kCall) {
       auto operand_indices = user->OperandIndices(instruction);
@@ -189,12 +191,16 @@ std::vector<InstructionAndShapeIndex> GetPredecessors(
     tmp_shape_index.push_front(index);
     result.push_back({instruction->mutable_operand(0), tmp_shape_index});
   } else if (instruction->opcode() == HloOpcode::kTuple) {
-    CHECK(!instruction_and_shape_index.shape_index.empty())
-        << "Did not store an index before encountering a tuple.";
-    auto tmp_shape_index = instruction_and_shape_index.shape_index;
-    const int64_t index = tmp_shape_index.front();
-    tmp_shape_index.pop_front();
-    result.push_back({instruction->mutable_operand(index), tmp_shape_index});
+    if (instruction_and_shape_index.shape_index.empty()) {
+      for (HloInstruction* operand : instruction->operands()) {
+        result.push_back({operand, {}});
+      }
+    } else {
+      auto tmp_shape_index = instruction_and_shape_index.shape_index;
+      const int64_t index = tmp_shape_index.front();
+      tmp_shape_index.pop_front();
+      result.push_back({instruction->mutable_operand(index), tmp_shape_index});
+    }
   } else if (instruction->opcode() == HloOpcode::kCall) {
     // Predecessor of a call is its computation's root instruction.
     CHECK(instruction->called_computations().size() == 1)
