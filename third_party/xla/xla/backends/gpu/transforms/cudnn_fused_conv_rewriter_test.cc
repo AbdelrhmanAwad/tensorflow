@@ -142,6 +142,7 @@ class CudnnFusedConvRewriterTest
     DebugOptions debug_opts = config.debug_options();
     debug_opts.add_xla_disable_hlo_passes("cudnn_vectorize_convolutions");
     debug_opts.set_xla_gpu_use_runtime_fusion(true);
+    debug_opts.set_xla_gpu_experimental_enable_conv_fusion(false);
     config.set_debug_options(debug_opts);
 
     auto result = GetOptimizedModule(hlo_string, config);
@@ -839,9 +840,12 @@ TEST_F(CudnnFusedConvRewriterTest, PreservesMetadata) {
       ROOT relu = f32[1,32,9,9] maximum(zeros, conv)
     })";
 
-  ASSERT_OK_AND_ASSIGN(
-      auto optimized_module,
-      GetOptimizedModule(kHloString, GetModuleConfigForTest()));
+  HloModuleConfig config = GetModuleConfigForTest();
+  DebugOptions debug_opts = config.debug_options();
+  debug_opts.set_xla_gpu_experimental_enable_conv_fusion(false);
+  config.set_debug_options(debug_opts);
+  ASSERT_OK_AND_ASSIGN(auto optimized_module,
+                       GetOptimizedModule(kHloString, config));
   const HloInstruction* custom_call = hlo_query::GetFirstInstructionWithOpcode(
       *optimized_module->entry_computation(), HloOpcode::kCustomCall);
   ASSERT_THAT(custom_call, NotNull()) << optimized_module->ToString();
