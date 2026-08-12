@@ -26,6 +26,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -107,6 +108,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -487,6 +489,7 @@ tf_proto_library(
     srcs = ["backend_config.proto"],
     deps = [
         "//xla:autotuning_proto",
+        "//xla/codegen/xtile:xtile_config_proto",
         "//xla/service/cpu:backend_config_proto",
         "//xla/service/gpu:backend_configs",
         "//xla/tsl/protobuf:dnn_proto",
