@@ -118,6 +118,9 @@ class ArrayElementwiseOpTestParamCount
     : public ArrayElementwiseOpTest,
       public ::testing::WithParamInterface<int> {};
 
+template <typename T>
+class ArrayElementwiseOpTypedTest : public ArrayElementwiseOpTest {};
+
 TEST_F(ArrayElementwiseOpTest, NegConstantZeroElementF32) {
   XlaBuilder builder(TestName());
   auto a = ConstantR1<float>(&builder, {});
@@ -1424,14 +1427,12 @@ class TotalOrderTest : public ClientLibraryTestRunnerMixin<
 using Types =
     ::testing::Types<tsl::float8_e3m4, tsl::float8_e4m3, tsl::float8_e4m3fn,
                      tsl::float8_e4m3fnuz, tsl::float8_e4m3b11fnuz,
-                     tsl::float8_e5m2, tsl::float8_e5m2fnuz,
-                     Eigen::half,
-                     Eigen::bfloat16,
-                     double,
-                     tsl::float4_e2m1fn, tsl::float8_e8m0fnu,
-                     float>;
+                     tsl::float8_e5m2, tsl::float8_e5m2fnuz, Eigen::half,
+                     Eigen::bfloat16, double, tsl::float4_e2m1fn,
+                     tsl::float8_e8m0fnu, float>;
 
-TYPED_TEST_SUITE(TotalOrderTest, Types);
+TYPED_TEST_SUITE(TotalOrderTest, Types,
+                 ::testing::internal::DefaultNameGenerator);
 
 TYPED_TEST(TotalOrderTest, Eq) { this->DoIt(ComparisonDirection::kEq); }
 TYPED_TEST(TotalOrderTest, Ne) { this->DoIt(ComparisonDirection::kNe); }
@@ -1737,6 +1738,59 @@ TEST_F(ArrayElementwiseOpTest, CompareLtU32s) {
   ComputeAndCompareR1<bool>(
       &builder, {false, true, true, false, false, true, false, false, false},
       {});
+}
+
+using SignedIntTypes = ::testing::Types<int8_t, int16_t, int32_t, int64_t>;
+// using SignedIntTypes = ::testing::Types<int32_t>;
+TYPED_TEST_SUITE(ArrayElementwiseOpTypedTest, SignedIntTypes,
+                 ::testing::internal::DefaultNameGenerator);
+
+template <typename T>
+std::string TypeToStr() {
+  if constexpr (std::is_same_v<T, int8_t>) {
+    return "int8";
+  } else if constexpr (std::is_same_v<T, int16_t>) {
+    return "int16";
+  } else if constexpr (std::is_same_v<T, int32_t>) {
+    return "int32";
+  } else if constexpr (std::is_same_v<T, int64_t>) {
+    return "int64";
+  } else {
+    return "unknown type";
+  }
+}
+
+TYPED_TEST(ArrayElementwiseOpTypedTest, PowIntegerConstants) {
+  XlaBuilder b(this->TestName() + TypeToStr<TypeParam>());
+
+  const std::vector<TypeParam> values0 = {2, 2, 2, 1, -1, -1, -1};
+  const std::vector<TypeParam> values1 = {2, 0, -1, -1, -1, 4, -6};
+
+  auto lhs = ConstantR1<TypeParam>(&b, values0);
+  auto rhs = ConstantR1<TypeParam>(&b, values1);
+  Pow(lhs, rhs);
+
+  std::vector<TypeParam> expected = {4, 1, 0, 1, -1, 1, 1};
+
+  this->template ComputeAndCompareR1<TypeParam>(&b, expected, {});
+}
+
+TYPED_TEST(ArrayElementwiseOpTypedTest, PowIntegers) {
+  XlaBuilder b(this->TestName() + TypeToStr<TypeParam>());
+
+  const std::vector<TypeParam> values0 = {2, 2, 2, 1, -1, -1, -1};
+  const std::vector<TypeParam> values1 = {2, 0, -1, -1, -1, 4, -6};
+
+  const Literal lhs_literal = LiteralUtil::CreateR1<TypeParam>(values0);
+  auto lhs = Parameter(&b, 0, lhs_literal.shape(), "lhs");
+  Literal rhs_literal = LiteralUtil::CreateR1<TypeParam>(values1);
+  auto rhs = Parameter(&b, 1, rhs_literal.shape(), "rhs");
+  Pow(lhs, rhs);
+
+  std::vector<TypeParam> expected = {4, 1, 0, 1, -1, 1, 1};
+
+  this->template ComputeAndCompareR1<TypeParam>(&b, expected,
+                                                {&lhs_literal, &rhs_literal});
 }
 
 TEST_F(ArrayElementwiseOpTest, PowF32s) {
