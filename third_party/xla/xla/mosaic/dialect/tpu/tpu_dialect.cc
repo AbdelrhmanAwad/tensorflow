@@ -396,7 +396,7 @@ FailureOr<SmallVector<int64_t>> getExpandedShape(
 }
 }  // namespace
 
-SmallVector<int64_t> TiledLayoutAttr::getDefaultTileStrides(
+SmallVector<int64_t> TiledLayoutAttr::getContiguousTileStrides(
     const ArrayRef<xla::Tile> tiles, const ArrayRef<int64_t> shape) {
   SmallVector<int64_t> strides(shape.size());
   int64_t stride = 1;
@@ -421,7 +421,7 @@ TiledLayoutAttr TiledLayoutAttr::getContiguous(MLIRContext* context,
                                                ArrayRef<xla::Tile> tiles,
                                                ArrayRef<int64_t> shape) {
   return TiledLayoutAttr::get(
-      context, tiles, TiledLayoutAttr::getDefaultTileStrides(tiles, shape));
+      context, tiles, TiledLayoutAttr::getContiguousTileStrides(tiles, shape));
 }
 
 int64_t TiledLayoutAttr::getNumTrailingDimsWithContiguousTiles(
