@@ -16,12 +16,15 @@ limitations under the License.
 
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "tensorflow/lite/core/c/c_api_types.h"
 #include "tensorflow/lite/core/c/common.h"
+#include "tensorflow/lite/experimental/resource/mock_resource.h"
+#include "tensorflow/lite/experimental/resource/resource_base.h"
 #include "tensorflow/lite/kernels/test_util.h"
 #include "tensorflow/lite/util.h"
 
@@ -216,6 +219,47 @@ TEST(ResourceTest, GetMemoryUsage) {
   // For non dynamic tensors we need to delete the buffers manually.
   free(tensor.data.raw);
   TfLiteTensorFree(&tensor);
+}
+
+TEST(ResourceTest, CreateResourceVariableWhenNotAvailableCreatesNew) {
+  ResourceMap resources;
+  EXPECT_EQ(CreateResourceVariableIfNotAvailable(&resources, /*resource_id=*/1),
+            kTfLiteOk);
+  EXPECT_THAT(resources,
+              ::testing::ElementsAre(::testing::Pair(
+                  1, ::testing::Pointee(::testing::Property(
+                         &ResourceBase::GetResourceType,
+                         ResourceBase::ResourceType::kResourceVariable)))));
+}
+
+TEST(ResourceTest, CreateResourceVariableWhenMatchingTypeExistsSucceeds) {
+  ResourceMap resources;
+  EXPECT_EQ(CreateResourceVariableIfNotAvailable(&resources, /*resource_id=*/1),
+            kTfLiteOk);
+  EXPECT_EQ(CreateResourceVariableIfNotAvailable(&resources, /*resource_id=*/1),
+            kTfLiteOk);
+  ASSERT_EQ(resources.size(), 1);
+}
+
+TEST(ResourceTest, CreateResourceVariableWhenTypeMismatchesReturnsError) {
+  ResourceMap resources;
+  resources.emplace(1, std::make_unique<MockHashTableResource>());
+  EXPECT_EQ(CreateResourceVariableIfNotAvailable(&resources, /*resource_id=*/1),
+            kTfLiteError);
+}
+
+TEST(ResourceTest, CreateResourceVariableWhenEntryIsNullReturnsError) {
+  ResourceMap resources;
+  resources.emplace(1, nullptr);
+  EXPECT_EQ(CreateResourceVariableIfNotAvailable(&resources, /*resource_id=*/1),
+            kTfLiteError);
+  EXPECT_EQ(GetResourceVariable(&resources, /*resource_id=*/1), nullptr);
+}
+
+TEST(ResourceTest, GetResourceVariableWhenTypeMismatchesReturnsNull) {
+  ResourceMap resources;
+  resources.emplace(1, std::make_unique<MockHashTableResource>());
+  EXPECT_EQ(GetResourceVariable(&resources, /*resource_id=*/1), nullptr);
 }
 
 }  // namespace resource
