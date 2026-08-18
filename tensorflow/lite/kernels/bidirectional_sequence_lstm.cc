@@ -414,6 +414,50 @@ TfLiteStatus CheckInputTensorDimensions(TfLiteContext* context,
   return kTfLiteOk;
 }
 
+TfLiteStatus CheckAuxInputTensorDimensions(
+    TfLiteContext* context, bool has_aux_input, const TfLiteTensor* aux_input,
+    const TfLiteTensor* input, int n_input, int n_fw_cell, int n_bw_cell,
+    const TfLiteTensor* fw_aux_input_to_forget_weights,
+    const TfLiteTensor* fw_aux_input_to_cell_weights,
+    const TfLiteTensor* fw_aux_input_to_output_weights,
+    const TfLiteTensor* bw_aux_input_to_forget_weights,
+    const TfLiteTensor* bw_aux_input_to_cell_weights,
+    const TfLiteTensor* bw_aux_input_to_output_weights) {
+  if (has_aux_input) {
+    // Check that aux_input has the same dimensions (except last) as the input.
+    TF_LITE_ASSERT_EQ(aux_input->dims->data[0], input->dims->data[0]);
+    TF_LITE_ASSERT_EQ(aux_input->dims->data[1], input->dims->data[1]);
+    const int aux_input_size = aux_input->dims->data[2];
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_forget_weights->dims->data[0],
+                      n_fw_cell);
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_forget_weights->dims->data[1],
+                      aux_input_size);
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_cell_weights->dims->data[0],
+                      n_fw_cell);
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_cell_weights->dims->data[1],
+                      aux_input_size);
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_output_weights->dims->data[0],
+                      n_fw_cell);
+    TF_LITE_ENSURE_EQ(context, fw_aux_input_to_output_weights->dims->data[1],
+                      aux_input_size);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_forget_weights->dims->data[0],
+                      n_bw_cell);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_forget_weights->dims->data[1],
+                      aux_input_size);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_cell_weights->dims->data[0],
+                      n_bw_cell);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_cell_weights->dims->data[1],
+                      aux_input_size);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_output_weights->dims->data[0],
+                      n_bw_cell);
+    TF_LITE_ENSURE_EQ(context, bw_aux_input_to_output_weights->dims->data[1],
+                      aux_input_size);
+  } else if (aux_input) {
+    TF_LITE_ENSURE_EQ(context, aux_input->dims->data[2], n_input);
+  }
+  return kTfLiteOk;
+}
+
 // Resize the output and scratch tensors based on the sizes of the input
 // tensors. Also check that the size of the input tensors match each other.
 TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
@@ -521,11 +565,13 @@ TfLiteStatus Prepare(TfLiteContext* context, TfLiteNode* node) {
 
   const bool has_aux_input = (fw_aux_input_to_forget_weights != nullptr);
 
-  if (has_aux_input) {
-    // Check that aux_input has the same dimensions (except last) as the input.
-    TF_LITE_ASSERT_EQ(aux_input->dims->data[0], input->dims->data[0]);
-    TF_LITE_ASSERT_EQ(aux_input->dims->data[1], input->dims->data[1]);
-  }
+  TF_LITE_ENSURE_OK(
+      context, CheckAuxInputTensorDimensions(
+                   context, has_aux_input, aux_input, input, n_input, n_fw_cell,
+                   n_bw_cell, fw_aux_input_to_forget_weights,
+                   fw_aux_input_to_cell_weights, fw_aux_input_to_output_weights,
+                   bw_aux_input_to_forget_weights, bw_aux_input_to_cell_weights,
+                   bw_aux_input_to_output_weights));
 
   // Get the pointer to output, activation_state and cell_state buffer tensors.
   TfLiteTensor* fw_output;
