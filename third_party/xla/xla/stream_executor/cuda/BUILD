@@ -3277,6 +3277,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":cuda_elf_utils",
         "//xla/stream_executor:kernel_spec",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
@@ -3289,6 +3290,33 @@ cc_library(
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "cuda_elf_utils",
+    srcs = ["cuda_elf_utils.cc"],
+    hdrs = ["cuda_elf_utils.h"],
+    tags = [
+        "cuda-only",
+        "gpu",
+    ],
+    deps = [
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+xla_cc_test(
+    name = "cuda_elf_utils_test",
+    srcs = ["cuda_elf_utils_test.cc"],
+    tags = [
+        "cuda-only",
+        "gpu",
+    ],
+    deps = [
+        ":cuda_elf_utils",
+        "@com_google_absl//absl/types:span",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
