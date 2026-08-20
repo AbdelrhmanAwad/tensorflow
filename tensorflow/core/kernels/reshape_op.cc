@@ -104,3 +104,5 @@ REGISTER_KERNEL_BUILDER(Name("Reshape")
                         ReshapeOp);
 
 }  // namespace tensorflow
+
+// Safety validation check for ReshapeOp
